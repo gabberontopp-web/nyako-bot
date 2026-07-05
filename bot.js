@@ -30,6 +30,8 @@ const welcomeConfig = new Map();
 const goodbyeConfig = new Map();
 const logsConfig = new Map();
 const openTickets = new Map();
+const inviteCache = new Map();
+const inviteStats = new Map();
 
 async function sendLog(client, guildId, embed) {
   const channelId = logsConfig.get(guildId);
@@ -107,6 +109,12 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   new SlashCommandBuilder()
+    .setName("invites")
+    .setDescription("Voir les invitations d'un membre")
+    .addUserOption(o => o.setName("membre").setDescription("Le membre (laissez vide pour vous)"))
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+
+  new SlashCommandBuilder()
     .setName("say")
     .setDescription("Faire parler le bot")
     .addStringOption(o => o.setName("message").setDescription("Le message à envoyer").setRequired(true))
@@ -138,15 +146,47 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildInvites,
   ],
 });
 
-client.once("clientReady", () => {
+client.once("clientReady", async () => {
   console.log(`✅ Bot connecté en tant que ${client.user.tag}`);
   client.user.setActivity("🛡️ Modération du serveur");
+  for (const guild of client.guilds.cache.values()) {
+    const invites = await guild.invites.fetch().catch(() => null);
+    if (invites) inviteCache.set(guild.id, new Map(invites.map(i => [i.code, i.uses])));
+  }
+  console.log("✅ Cache des invitations chargé !");
+});
+
+client.on("inviteCreate", invite => {
+  const cache = inviteCache.get(invite.guild.id) ?? new Map();
+  cache.set(invite.code, invite.uses);
+  inviteCache.set(invite.guild.id, cache);
+});
+
+client.on("inviteDelete", invite => {
+  const cache = inviteCache.get(invite.guild.id);
+  if (cache) cache.delete(invite.code);
 });
 
 client.on("guildMemberAdd", async (member) => {
+  let inviterText = "Inconnu";
+  try {
+    const cachedInvites = inviteCache.get(member.guild.id) ?? new Map();
+    const newInvites = await member.guild.invites.fetch();
+    const usedInvite = newInvites.find(i => (cachedInvites.get(i.code) ?? 0) < (i.uses ?? 0));
+    inviteCache.set(member.guild.id, new Map(newInvites.map(i => [i.code, i.uses])));
+    if (usedInvite?.inviter) {
+      const inviterId = usedInvite.inviter.id;
+      const stats = inviteStats.get(member.guild.id) ?? new Map();
+      stats.set(inviterId, (stats.get(inviterId) ?? 0) + 1);
+      inviteStats.set(member.guild.id, stats);
+      inviterText = `<@${inviterId}> (${stats.get(inviterId)} invitation(s))`;
+    }
+  } catch {}
+
   const config = welcomeConfig.get(member.guild.id);
   if (!config) return;
   const channel = member.guild.channels.cache.get(config.channelId);
@@ -158,7 +198,10 @@ client.on("guildMemberAdd", async (member) => {
   const embed = new EmbedBuilder()
     .setColor(0x2ecc71).setTitle("👋 Bienvenue !")
     .setDescription(msg).setThumbnail(member.user.displayAvatarURL())
-    .addFields({ name: "Compte créé le", value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:D>`, inline: true })
+    .addFields(
+      { name: "Compte créé le", value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:D>`, inline: true },
+      { name: "Invité par", value: inviterText, inline: true }
+    )
     .setFooter({ text: `Membre #${member.guild.memberCount}` }).setTimestamp();
   await channel.send({ content: `<@${member.id}>`, embeds: [embed] });
 });
@@ -281,6 +324,20 @@ async function handleCommand(interaction) {
     await interaction.editReply({ embeds: [embed] });
     await sendLog(client, guildId, new EmbedBuilder().setColor(0x2ecc71).setTitle("🗑️ CLEAR")
       .addFields({ name: "Supprimés", value: `${deleted.size}`, inline: true }, { name: "Modérateur", value: user.tag, inline: true }, { name: "Salon", value: `<#${interaction.channelId}>`, inline: true }).setTimestamp());
+  }
+
+  else if (commandName === "invites") {
+    const target = interaction.options.getUser("membre") ?? user;
+    const stats = inviteStats.get(guildId) ?? new Map();
+    const count = stats.get(target.id) ?? 0;
+    const embed = new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle(`📨 Invitations de ${target.tag}`)
+      .setThumbnail(target.displayAvatarURL())
+      .addFields({ name: "Membres invités", value: `**${count}** invitation(s)`, inline: true })
+      .setFooter({ text: "Tracking depuis le dernier redémarrage du bot" })
+      .setTimestamp();
+    await interaction.reply({ embeds: [embed] });
   }
 
   else if (commandName === "say") {
