@@ -27,6 +27,7 @@ if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
 
 const warnings = new Map();
 const welcomeConfig = new Map();
+const goodbyeConfig = new Map();
 const logsConfig = new Map();
 const openTickets = new Map();
 
@@ -104,6 +105,16 @@ const commands = [
       .addChannelOption(o => o.setName("salon").setDescription("Salon des logs").setRequired(true)))
     .addSubcommand(s => s.setName("desactiver").setDescription("Désactiver les logs"))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+
+  new SlashCommandBuilder()
+    .setName("goodbye")
+    .setDescription("Configurer le message d'au revoir")
+    .addSubcommand(s => s.setName("configurer").setDescription("Configurer le salon d'au revoir")
+      .addChannelOption(o => o.setName("salon").setDescription("Salon d'au revoir").setRequired(true))
+      .addStringOption(o => o.setName("message").setDescription("Message ({user}, {server}, {count})")))
+    .addSubcommand(s => s.setName("test").setDescription("Tester le message d'au revoir"))
+    .addSubcommand(s => s.setName("desactiver").setDescription("Désactiver les messages d'au revoir"))
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 ];
 
 const rest = new REST().setToken(TOKEN);
@@ -137,9 +148,27 @@ client.on("guildMemberAdd", async (member) => {
     .replace("{server}", member.guild.name)
     .replace("{count}", `${member.guild.memberCount}`);
   const embed = new EmbedBuilder()
-    .setColor(0x5865f2).setTitle("👋 Nouveau membre !")
+    .setColor(0x2ecc71).setTitle("👋 Bienvenue !")
     .setDescription(msg).setThumbnail(member.user.displayAvatarURL())
+    .addFields({ name: "Compte créé le", value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:D>`, inline: true })
     .setFooter({ text: `Membre #${member.guild.memberCount}` }).setTimestamp();
+  await channel.send({ content: `<@${member.id}>`, embeds: [embed] });
+});
+
+client.on("guildMemberRemove", async (member) => {
+  const config = goodbyeConfig.get(member.guild.id);
+  if (!config) return;
+  const channel = member.guild.channels.cache.get(config.channelId);
+  if (!channel) return;
+  const msg = config.message
+    .replace("{user}", `**${member.user.tag}**`)
+    .replace("{server}", member.guild.name)
+    .replace("{count}", `${member.guild.memberCount}`);
+  const embed = new EmbedBuilder()
+    .setColor(0xe74c3c).setTitle("👋 Au revoir !")
+    .setDescription(msg).setThumbnail(member.user.displayAvatarURL())
+    .addFields({ name: "Était membre depuis", value: member.joinedAt ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>` : "Inconnu", inline: true })
+    .setFooter({ text: `Il reste ${member.guild.memberCount} membres` }).setTimestamp();
   await channel.send({ embeds: [embed] });
 });
 
@@ -292,6 +321,31 @@ async function handleCommand(interaction) {
     } else if (sub === "desactiver") {
       logsConfig.delete(guildId);
       await interaction.reply({ content: "✅ Logs désactivés.", ephemeral: true });
+    }
+  }
+
+  else if (commandName === "goodbye") {
+    const sub = interaction.options.getSubcommand();
+    if (sub === "configurer") {
+      const channel = interaction.options.getChannel("salon", true);
+      const message = interaction.options.getString("message") ?? "Au revoir **{user}** ! 😢\nNous sommes maintenant **{count}** membres sur **{server}**.";
+      goodbyeConfig.set(guildId, { channelId: channel.id, message });
+      await interaction.reply({ embeds: [new EmbedBuilder().setColor(0xe74c3c).setTitle("✅ Au revoir configuré")
+        .addFields({ name: "Salon", value: `<#${channel.id}>` }, { name: "Message", value: message }).setTimestamp()], ephemeral: true });
+    } else if (sub === "test") {
+      const config = goodbyeConfig.get(guildId);
+      if (!config) return interaction.reply({ content: "❌ Non configuré. Utilisez `/goodbye configurer` d'abord.", ephemeral: true });
+      const channel = guild.channels.cache.get(config.channelId);
+      if (!channel) return interaction.reply({ content: "❌ Salon introuvable.", ephemeral: true });
+      const msg = config.message.replace("{user}", `**${user.tag}**`).replace("{server}", guild.name).replace("{count}", `${guild.memberCount}`);
+      await channel.send({ embeds: [new EmbedBuilder().setColor(0xe74c3c).setTitle("👋 Au revoir !")
+        .setDescription(msg).setThumbnail(user.displayAvatarURL())
+        .addFields({ name: "Était membre depuis", value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true })
+        .setFooter({ text: `Il reste ${guild.memberCount} membres` }).setTimestamp()] });
+      await interaction.reply({ content: "✅ Message de test envoyé !", ephemeral: true });
+    } else if (sub === "desactiver") {
+      goodbyeConfig.delete(guildId);
+      await interaction.reply({ content: "✅ Messages d'au revoir désactivés.", ephemeral: true });
     }
   }
 }
