@@ -303,7 +303,7 @@ async function handleCommand(interaction) {
       const channel = guild.channels.cache.get(config.channelId);
       if (!channel) return interaction.reply({ content: "❌ Salon introuvable.", ephemeral: true });
       const msg = config.message.replace("{user}", `<@${user.id}>`).replace("{server}", guild.name).replace("{count}", `${guild.memberCount}`);
-      await channel.send({ embeds: [new EmbedBuilder().setColor(0x5865f2).setTitle("👋 Bienvenue !").setDescription(msg).setThumbnail(user.displayAvatarURL()).setTimestamp()] });
+      await channel.send({ content: `<@${user.id}>`, embeds: [new EmbedBuilder().setColor(0x2ecc71).setTitle("👋 Bienvenue !").setDescription(msg).setThumbnail(user.displayAvatarURL()).addFields({ name: "Compte créé le", value: `<t:${Math.floor(user.createdTimestamp / 1000)}:D>`, inline: true }).setFooter({ text: `Membre #${guild.memberCount}` }).setTimestamp()] });
       await interaction.reply({ content: "✅ Message de test envoyé !", ephemeral: true });
     } else if (sub === "desactiver") {
       welcomeConfig.delete(guildId);
