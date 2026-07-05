@@ -107,6 +107,14 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   new SlashCommandBuilder()
+    .setName("say")
+    .setDescription("Faire parler le bot")
+    .addStringOption(o => o.setName("message").setDescription("Le message à envoyer").setRequired(true))
+    .addChannelOption(o => o.setName("salon").setDescription("Salon cible (optionnel)"))
+    .addBooleanOption(o => o.setName("embed").setDescription("Envoyer en tant qu'embed ?"))
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+
+  new SlashCommandBuilder()
     .setName("goodbye")
     .setDescription("Configurer le message d'au revoir")
     .addSubcommand(s => s.setName("configurer").setDescription("Configurer le salon d'au revoir")
@@ -273,6 +281,23 @@ async function handleCommand(interaction) {
     await interaction.editReply({ embeds: [embed] });
     await sendLog(client, guildId, new EmbedBuilder().setColor(0x2ecc71).setTitle("🗑️ CLEAR")
       .addFields({ name: "Supprimés", value: `${deleted.size}`, inline: true }, { name: "Modérateur", value: user.tag, inline: true }, { name: "Salon", value: `<#${interaction.channelId}>`, inline: true }).setTimestamp());
+  }
+
+  else if (commandName === "say") {
+    const message = interaction.options.getString("message", true);
+    const channel = (interaction.options.getChannel("salon") ?? interaction.channel);
+    const useEmbed = interaction.options.getBoolean("embed") ?? false;
+
+    if (useEmbed) {
+      const embed = new EmbedBuilder()
+        .setColor(0x5865f2)
+        .setDescription(message)
+        .setTimestamp();
+      await channel.send({ embeds: [embed] });
+    } else {
+      await channel.send(message);
+    }
+    await interaction.reply({ content: `✅ Message envoyé dans <#${channel.id}> !`, ephemeral: true });
   }
 
   else if (commandName === "ticket") {
