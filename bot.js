@@ -204,22 +204,13 @@ client.on("guildMemberAdd", async (member) => {
     );
   }
   if (!channel) return;
-  const FUN_MESSAGES = [
-    `bienvenue à toi {user} gngngn 🐱`,
-    `oh bah {user} est là, bienvenue toi 🎉`,
-    `{user} a rejoint le serveur, c'est la folie 🔥`,
-    `tiens tiens tiens... {user} arrive sur le serveur 👀`,
-    `OMG {user} !! bienvenue parmi nous 🥳`,
-    `{user} a décidé de nous rejoindre, bonne décision 😎`,
-    `bon bah {user} est là maintenant, bienvenu(e) 👋`,
-  ];
-  const randomMsg = FUN_MESSAGES[Math.floor(Math.random() * FUN_MESSAGES.length)].replace("{user}", `<@${member.id}>`);
   const configMsg = config?.message
     ? config.message.replace("{user}", `<@${member.id}>`).replace("{server}", member.guild.name).replace("{count}", `${member.guild.memberCount}`)
     : null;
   const embed = new EmbedBuilder()
     .setColor(0x2ecc71)
-    .setDescription(configMsg ?? randomMsg)
+    .setTitle("👋 Bienvenue !")
+    .setDescription(configMsg ?? `Bienvenue sur **${member.guild.name}**, <@${member.id}> ! 🎉 Tu es notre **${member.guild.memberCount}e** membre.`)
     .setThumbnail(member.user.displayAvatarURL())
     .addFields(
       { name: "📅 Compte créé le", value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:D>`, inline: true },
@@ -228,6 +219,22 @@ client.on("guildMemberAdd", async (member) => {
     .setFooter({ text: `Membre #${member.guild.memberCount} • ${member.guild.name}` })
     .setTimestamp();
   await channel.send({ content: `<@${member.id}>`, embeds: [embed] });
+
+  const FUN_MESSAGES = [
+    `bienvenue à toi <@${member.id}> gngngn 🐱`,
+    `oh bah <@${member.id}> est là, bienvenue toi 🎉`,
+    `<@${member.id}> a rejoint le serveur, c'est la folie 🔥`,
+    `tiens tiens tiens... <@${member.id}> arrive sur le serveur 👀`,
+    `OMG <@${member.id}> !! bienvenue parmi nous 🥳`,
+    `<@${member.id}> a décidé de nous rejoindre, bonne décision 😎`,
+    `bon bah <@${member.id}> est là maintenant, bienvenu(e) 👋`,
+  ];
+  const randomMsg = FUN_MESSAGES[Math.floor(Math.random() * FUN_MESSAGES.length)];
+  const CHAT_NAMES = ["chat", "discussion", "général", "general", "bavardage", "lounge"];
+  const chatChannel = member.guild.channels.cache.find(
+    c => c.isTextBased() && CHAT_NAMES.includes(c.name.toLowerCase()) && c.permissionsFor(member.guild.members.me)?.has("SendMessages") && c.id !== channel.id
+  );
+  if (chatChannel) await chatChannel.send(randomMsg);
 });
 
 client.on("guildMemberRemove", async (member) => {
