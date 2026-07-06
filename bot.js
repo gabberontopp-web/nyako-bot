@@ -188,10 +188,23 @@ client.on("guildMemberAdd", async (member) => {
   } catch {}
 
   const config = welcomeConfig.get(member.guild.id);
-  if (!config) return;
-  const channel = member.guild.channels.cache.get(config.channelId);
+  const AUTO_NAMES = ["chat", "général", "general", "bienvenue", "welcome", "accueil", "discussion"];
+  let channel = null;
+  if (config) {
+    channel = member.guild.channels.cache.get(config.channelId);
+  }
+  if (!channel) {
+    channel = member.guild.channels.cache.find(
+      c => c.isTextBased() && AUTO_NAMES.includes(c.name.toLowerCase()) && c.permissionsFor(member.guild.members.me)?.has("SendMessages")
+    );
+  }
+  if (!channel) {
+    channel = member.guild.channels.cache.find(
+      c => c.isTextBased() && c.permissionsFor(member.guild.members.me)?.has("SendMessages")
+    );
+  }
   if (!channel) return;
-  const msg = config.message
+  const msg = (config?.message ?? `Bienvenue sur **{server}**, {user} ! 🎉 Tu es notre **{count}e** membre.`)
     .replace("{user}", `<@${member.id}>`)
     .replace("{server}", member.guild.name)
     .replace("{count}", `${member.guild.memberCount}`);
