@@ -204,18 +204,29 @@ client.on("guildMemberAdd", async (member) => {
     );
   }
   if (!channel) return;
-  const msg = (config?.message ?? `Bienvenue sur **{server}**, {user} ! 🎉 Tu es notre **{count}e** membre.`)
-    .replace("{user}", `<@${member.id}>`)
-    .replace("{server}", member.guild.name)
-    .replace("{count}", `${member.guild.memberCount}`);
+  const FUN_MESSAGES = [
+    `bienvenue à toi {user} gngngn 🐱`,
+    `oh bah {user} est là, bienvenue toi 🎉`,
+    `{user} a rejoint le serveur, c'est la folie 🔥`,
+    `tiens tiens tiens... {user} arrive sur le serveur 👀`,
+    `OMG {user} !! bienvenue parmi nous 🥳`,
+    `{user} a décidé de nous rejoindre, bonne décision 😎`,
+    `bon bah {user} est là maintenant, bienvenu(e) 👋`,
+  ];
+  const randomMsg = FUN_MESSAGES[Math.floor(Math.random() * FUN_MESSAGES.length)].replace("{user}", `<@${member.id}>`);
+  const configMsg = config?.message
+    ? config.message.replace("{user}", `<@${member.id}>`).replace("{server}", member.guild.name).replace("{count}", `${member.guild.memberCount}`)
+    : null;
   const embed = new EmbedBuilder()
-    .setColor(0x2ecc71).setTitle("👋 Bienvenue !")
-    .setDescription(msg).setThumbnail(member.user.displayAvatarURL())
+    .setColor(0x2ecc71)
+    .setDescription(configMsg ?? randomMsg)
+    .setThumbnail(member.user.displayAvatarURL())
     .addFields(
-      { name: "Compte créé le", value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:D>`, inline: true },
-      { name: "Invité par", value: inviterText, inline: true }
+      { name: "📅 Compte créé le", value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:D>`, inline: true },
+      { name: "📨 Invité par", value: inviterText, inline: true }
     )
-    .setFooter({ text: `Membre #${member.guild.memberCount}` }).setTimestamp();
+    .setFooter({ text: `Membre #${member.guild.memberCount} • ${member.guild.name}` })
+    .setTimestamp();
   await channel.send({ content: `<@${member.id}>`, embeds: [embed] });
 });
 
